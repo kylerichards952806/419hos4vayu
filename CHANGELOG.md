@@ -75,3 +75,13 @@ Remaining work:
 - 32-bit bionic installed as real files with `ro.zygote=zygote64`.
 - Artifacts split into `414/` and `419/` folders (boot, dtbo, super, vbmeta).
 - `super_donorsys.img` built (donor system only, base everything else) for isolation.
+
+## 2026-11-05 late — debloat reverted, product moved to erofs
+
+- All 30 debloated packages are back in product (2.35 GB restored from the donor).
+- A full product tree (5.77 GB) does not fit as ext4 in the 8.5 GB super, so product
+  is now erofs (3.97 GB, lz4hc), matching the donor's own format. The 4.14 base
+  kernel has erofs built in and the 4.19 config sets `CONFIG_EROFS_FS=y`.
+- Product fstab entry changed ext4 -> erofs in the boot ramdisk and both vendor
+  images; boot_414/boot_419 repacked; supers rebuilt (220 MB free of 9.127 GB).
+- Old ext4 supers kept as `*_ext4.img`; vbmeta flags 0x3 copies in both folders.
