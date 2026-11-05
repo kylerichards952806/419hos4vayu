@@ -65,3 +65,13 @@ Remaining work:
 2. Repack vendor/odm to the filesystem the boot ramdisk expects (or patch fstab).
 3. Supply 4.19 modules + regenerated `modules.dep`/`modules.load` once the kernel builds.
 4. Rebuild super with the adapted vendor and boot-test on device.
+
+## 2026-11-05 evening — 4.14 baseline and vbmeta finding
+
+- The verified base zip boots again after flashing its own super/boot/dtbo/vbmeta, so
+  the device and flash path are healthy; the failure is in the donor content.
+- Both zips ship vbmeta flags 0x0; forcing flags 0x3 on vbmeta and vbmeta_system did
+  not make the 4.14 donor port boot, so verification is not the sole cause.
+- 32-bit bionic installed as real files with `ro.zygote=zygote64`.
+- Artifacts split into `414/` and `419/` folders (boot, dtbo, super, vbmeta).
+- `super_donorsys.img` built (donor system only, base everything else) for isolation.
