@@ -85,3 +85,6 @@ Remaining work:
 - Product fstab entry changed ext4 -> erofs in the boot ramdisk and both vendor
   images; boot_414/boot_419 repacked; supers rebuilt (220 MB free of 9.127 GB).
 - Old ext4 supers kept as `*_ext4.img`; vbmeta flags 0x3 copies in both folders.
+- Flashable 4.14 zip: `414/vayu_myron_OS4.0.1.0.XPMEUXM_hyperos4-port_4.14.zip`
+  (5,414,559,611 bytes, md5 `0213bec2154715fc76a1b406016d4378`). Only the 4.14
+  zip was built for now.
