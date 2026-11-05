@@ -1,0 +1,67 @@
+# HyperOS 4 vayu port — change log
+
+Last updated: 2026-11-05
+
+## Credits and attribution rules
+
+- ROM credit is **kyler084**: Settings → About phone shows `OS4.0.1.0.XPMEUXM | kyler084`,
+  release post signed `By @kyler084`.
+- **No Codebuff / Freebuff references on GitHub.** This repository must not contain AI
+  attribution in files, commit messages, or co-author trailers. The first commit was
+  amended and force-updated to remove it; keep future commits free of it.
+- Base-port maintainer line (`@dykssvayuuser`) removed from `updater-script`.
+- Upstream components reused: duckyduckG 4.19 sm8150 kernel (`lineage-23.2_xiaomi`) and
+  vayu device tree (`DUCKS-QCM-5-4/android_device_xiaomi_vayu`, `lineage-23.2_4.19`).
+
+## Port (system side)
+
+- Built `vayu_myron_OS4.0.1.0.XPMEUXM_hyperos4-port.zip`
+  (4,040,341,946 bytes, md5 `117ab527e83e4a080b5fa4e7268beda1`).
+- Donor: myron EEA `OS4.0.1.0.XPMEUXM` — took `system`, `system_ext`, `product`.
+- Base: `vayubhima-HyperOS4.0.0.5.XOBCNXM` — kept `vendor`, `odm`, `mi_ext`, `boot`,
+  `dtbo`, `vbmeta*`, firmware.
+- Grafted vayu 32-bit runtime back into donor system/system_ext (libs, ART, binaries).
+- Rebuilt `system`, `system_ext` and `product` as ext4 (boot ramdisk fstab has no erofs
+  entry for them); `vendor`/`odm`/`mi_ext` unchanged from base.
+- New `super.img` 9,126,805,504 bytes, 6 partitions, liblp verified.
+- Debloated ~30 packages; identity/props tuned for vayu (fingerprint, board, heap, 120 Hz).
+- Removed maintainer line from `updater-script`.
+- Flash test: super/kernel/dtbo/vbmeta/firmware wrote fine, device still bootlooped.
+- Root causes identified: (1) product filesystem mismatch — fixed by ext4 rebuild;
+  (2) donor `com.android.runtime.apex` has no 32-bit payload while the vendor needs
+  32-bit bionic — fix prepared (install base 32-bit linker+bionic as real files,
+  `ro.zygote=zygote64`, arm64-only abilist) but **not yet run/verified**.
+
+## Kernel (real 4.19)
+
+- Cloned `duckyduckG/android_kernel_xiaomi_sm8150_419`, branch `lineage-23.2_xiaomi`
+  (1.5 GB), vayu DTS at `arch/arm64/boot/dts/xiaomi/vayu`, configs
+  `vendor/sm8150-perf_defconfig` + `vendor/xiaomi/sm8150-common.config` + `vendor/xiaomi/vayu.config`.
+- Local build (clang 14, `-j12`) reached 1,242 objects with no errors, then was
+  interrupted by tool time limits; no `Image`/`dtbo.img` produced yet.
+- Tree has a real `dtbo.img` target (`arch/arm64/Makefile: KBUILD_DTBO_IMG`) and
+  `scripts/mkdtboimg.py`, so dtbo can be built in CI.
+- GitHub Actions workflow (ubuntu-22.04) builds Image, dtbo.img and modules. It is
+  prepared locally but needs the `workflow` OAuth scope before it can be pushed
+  (`gh auth refresh -h github.com -s workflow`).
+
+## Vendor 4.19 adaptation — NOT FINISHED
+
+Done so far:
+
+- `vendor.new.dat.br` decompressed to `vendor419.img` (737,619,968 bytes; transfer list
+  v4, 180,083 blocks, range-form commands `new <n>,<start>,<end>`).
+- Inventory of the 4.19 vendor:
+  - MIUI-14-blob based: `ro.vendor.build.fingerprint` = `Xiaomi/vayu_global/vayu:13/...V14.0.3.0.TJUMIXM`.
+  - fstab: `system`/`system_ext`/`product` ext4, **`vendor`/`odm` erofs**.
+  - 75 `etc/init` rc files, Lineage-style HAL set.
+  - 32-bit HALs retained: audio, cas, media.omx; 312 lib32, 647 lib64, 7 32-bit bins.
+  - **No `.ko` modules** — drivers built into ducky's kernel.
+
+Remaining work:
+
+1. Choose merge direction: 4.19 vendor + grafted HOS4/MIUI init/props, or base vendor +
+   matching 4.19 modules.
+2. Repack vendor/odm to the filesystem the boot ramdisk expects (or patch fstab).
+3. Supply 4.19 modules + regenerated `modules.dep`/`modules.load` once the kernel builds.
+4. Rebuild super with the adapted vendor and boot-test on device.
