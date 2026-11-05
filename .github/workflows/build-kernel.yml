@@ -1,0 +1,68 @@
+name: build-vayu-hos4-kernel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "configs/**"
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout build config
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison flex libssl-dev libelf-dev zip unzip \
+            python3 python-is-python3 clang lld llvm gcc-aarch64-linux-gnu
+
+      - name: Fetch ducky 4.19 sm8150 kernel (lineage-23.2_xiaomi)
+        run: |
+          git clone --depth 1 -b lineage-23.2_xiaomi \
+            https://github.com/duckyduckG/android_kernel_xiaomi_sm8150_419 kernel
+          git -C kernel log --oneline -1
+
+      - name: Configure vayu + HOS4 fragment
+        run: |
+          make -C kernel O="$PWD/out" ARCH=arm64 vendor/sm8150-perf_defconfig
+          kernel/scripts/kconfig/merge_config.sh -m -O "$PWD/out" "$PWD/out/.config" \
+            kernel/arch/arm64/configs/vendor/xiaomi/sm8150-common.config \
+            kernel/arch/arm64/configs/vendor/xiaomi/vayu.config \
+            "$PWD/configs/vayu-hos4.config"
+          make -C kernel O="$PWD/out" ARCH=arm64 olddefconfig
+          grep -E "^CONFIG_(EROFS_FS|MODULES|LOCALVERSION|CFI_CLANG)=" "$PWD/out/.config" || true
+
+      - name: Build Image, dtbo and modules
+        run: |
+          make -C kernel O="$PWD/out" ARCH=arm64 -j"$(nproc)" \
+            LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu- \
+            Image dtbo.img modules
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifact
+          cp out/arch/arm64/boot/Image artifact/Image
+          cp out/arch/arm64/boot/dtbo.img artifact/dtbo.img
+          cp out/.config artifact/kernel.config
+          find out -name '*.ko' -print0 | tar --null -T - -czf artifact/modules.tar.gz
+          find out -name '*.ko' | sed 's|.*/||' | sort > artifact/module-list.txt
+          ls -la artifact
+          du -sh artifact/*
+
+      - name: Upload kernel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vayu-hos4-kernel
+          path: artifact/*
+          if-no-files-found: error
